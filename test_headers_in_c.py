@@ -1,52 +1,47 @@
-import os
 import subprocess
+import os
+import pytest
 
-def check_files_exist(files):
-    return all(os.path.exists(file) for file in files)
+# Define task directories and expected executables
+tasks = {
+    "Task1": {
+        "files": ["greetings.c", "main.c"],
+        "executable": "hello",
+        "expected_output": "Hello, World!\n"
+    },
+    "Task2": {
+        "files": ["math_operations.c", "print_operations.c", "main.c"],
+        "executable": "math_printer",
+        "expected_output": "Result: 15\n"  # Using add(10, 5) as per main.c in Task 2
+    },
+    "Task3": {
+        "files": ["array_utils.c", "utils.c", "main.c"],
+        "executable": "array_util_demo",
+        "expected_output": "3 3 3 3 3 \n"
+    }
+}
 
-def compile_files(sources, output):
-    try:
-        subprocess.run(["gcc", *sources, "-o", output], check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+@pytest.mark.parametrize("task, details", tasks.items())
+def test_tasks(task, details):
+    # Prepare the command to compile the C files
+    compile_command = ["gcc"] + details["files"] + ["-o", details["executable"]]
+    task_dir = f"./{task}"
 
-def run_executable(executable):
-    try:
-        result = subprocess.run(["./" + executable], check=True, capture_output=True, text=True)
-        return result.stdout
-    except subprocess.CalledProcessError:
-        return None
+    # Change directory to the task directory
+    original_dir = os.getcwd()
+    os.chdir(task_dir)
+    
+    # Compile the files
+    compilation_result = subprocess.run(compile_command, capture_output=True, text=True)
+    assert compilation_result.returncode == 0, f"Compilation failed for {task}: {compilation_result.stderr}"
 
-# Test for Task 1
-task1_files = ["greetings.h", "greetings.c", "main.c"]
-if check_files_exist(task1_files):
-    if compile_files(["greetings.c", "main.c"], "hello"):
-        output = run_executable("hello")
-        print("Task 1 Output:", output)
-    else:
-        print("Task 1 Compilation Failed")
-else:
-    print("Task 1 Files Missing")
+    # Run the executable if compilation was successful
+    run_result = subprocess.run(f"./{details['executable']}", capture_output=True, text=True)
+    assert run_result.returncode == 0, f"Execution failed for {task}: {run_result.stderr}"
 
-# Test for Task 2
-task2_files = ["math_operations.h", "math_operations.c", "print_operations.h", "print_operations.c", "main.c"]
-if check_files_exist(task2_files):
-    if compile_files(["math_operations.c", "print_operations.c", "main.c"], "math_printer"):
-        output = run_executable("math_printer")
-        print("Task 2 Output:", output)
-    else:
-        print("Task 2 Compilation Failed")
-else:
-    print("Task 2 Files Missing")
+    # Check the output
+    assert run_result.stdout == details["expected_output"], f"Output mismatch for {task}: {run_result.stdout}"
 
-# Test for Task 3
-task3_files = ["array_utils.h", "array_utils.c", "utils.h", "utils.c", "main.c"]
-if check_files_exist(task3_files):
-    if compile_files(["array_utils.c", "utils.c", "main.c"], "array_util_demo"):
-        output = run_executable("array_util_demo")
-        print("Task 3 Output:", output)
-    else:
-        print("Task 3 Compilation Failed")
-else:
-    print("Task 3 Files Missing")
+    # Clean up by removing the executable and return to the original directory
+    os.remove(details["executable"])
+    os.chdir(original_dir)
